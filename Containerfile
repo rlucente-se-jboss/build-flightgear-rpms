@@ -2,22 +2,20 @@
 ## Start with Fedora 34 which should be the closest Fedora release to
 ## RHEL 9 and download the Fedora SRPM files for the missing FlightGear
 ## dependencies. These were determined manually to find the minimal set
-## of missing dependencies.
+## of build and runtime dependencies.
 ##
 ## Key artifact: missing-rpms.tgz
 ##
 FROM fedora:34 AS f34
-COPY /missing-dependencies.txt /
+COPY /*-dependencies.txt /
 
 # update and install xargs and find
 RUN    dnf -y update \
     && dnf -y install findutils 'dnf-command(download)' \
     && dnf -y clean all
 
-# download and tgz the missing dependency SRPM files. fltk is a build-time
-# dependency that's not necessary for installation so it's added here.
-RUN    echo "fltk" >> missing-dependencies.txt \
-    && cat missing-dependencies.txt | \
+# download and tgz the missing dependency SRPM files.
+RUN    cat build-dependencies.txt runtime-dependencies.txt | \
            xargs dnf -y download --source --archlist x86_64,noarch \
     && tar zcvf missing-rpms.tgz *.rpm
 
