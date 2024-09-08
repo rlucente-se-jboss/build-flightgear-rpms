@@ -33,4 +33,4 @@ need those.
 
 Not all of the RPMs are necessary to install FlightGear. You only need
 the ones for missing runtime dependencies. With a little trial and error,
-I narrowed the list to everything in `missing-dependencies.txt`.
+I narrowed the list to everything in `runtime-dependencies.txt`.
