@@ -36,3 +36,13 @@ need those.
 Not all of the RPMs are necessary to install FlightGear. You only need
 the ones for missing runtime dependencies. With a little trial and error,
 I narrowed the list to everything in `runtime-dependencies.txt`.
+
+# Alternate commands
+DEPENDENCIES=flightgear-dependencies
+
+mkdir -p $DEPENDENCIES
+
+podman build -f Containerfile -t localhost/fg-rpms \
+    -v $(pwd)/$DEPENDENCIES:/flightgear-dependencies:Z \
+    --build-arg DEPENDENCIES=$DEPENDENCIES \
+    2>&1 | tee output.txt
