@@ -1,0 +1,77 @@
+##
+## Start with Fedora 40 which should be the closest Fedora release to
+## RHEL 10 and download the Fedora SRPM files for the missing FlightGear
+## dependencies. These were determined manually to find the minimal set of
+## build and runtime dependencies.
+
+##
+## Output: missing-rpms.tgz
+##
+FROM fedora:40 AS f40
+COPY /*-dependencies.txt /
+
+# install dnf find utility
+RUN    dnf -y install findutils 'dnf-command(download)' \
+    && dnf -y clean all
+
+# download and tgz the missing dependency SRPM files.
+RUN    cat build-dependencies.txt runtime-dependencies.txt | \
+           grep -v '^#' | \
+           xargs dnf -y download --source --archlist x86_64,noarch \
+    && tar zcvf missing-rpms.tgz *.rpm
+
+##
+## Build the missing FlightGear SRPMs on RHEL10
+##
+#FROM registry.redhat.io/ubi10-beta/ubi:10.0-beta
+FROM quay.io/centos/centos:stream10
+COPY --from=f40 /missing-rpms.tgz / 
+
+# set up the build environment
+RUN    dnf -y install rpmdevtools tcl findutils \
+           https://dl.fedoraproject.org/pub/epel/epel-release-latest-10.noarch.rpm \
+    && dnf -y clean all
+
+# install any RPMs that are in the /rpms directory which is volume mounted
+# from the host. These could be from a prior build attempt and they should
+# also be excluded from the build- and runtime-dependencies.txt files.
+RUN    mkdir -p /rpms \
+    && if [ ! -z "$(ls -A /rpms)" ]; \
+       then \
+           dnf -y install \
+               --skip-broken \
+               rpms/*.rpm; \
+       fi
+
+# install all the build dependencies. This can sometimes fail so address
+# all the dependencies in a for loop and skip any errors. The next loop
+# will attempt to build each in turn until all dependencies are met.
+RUN    mkdir -p srpms \
+    && tar zxvf missing-rpms.tgz -C srpms \
+    && for bd in $(ls srpms/*.src.rpm); \
+       do \
+           dnf -y builddep --skip-unavailable --srpm --skip-broken -v "$bd" || echo "\n\n *** ERROR ***\n\n" ; \
+       done
+# MAKE SURE TO INCLUDE THE FOLLOWING FOR RHEL 10 IN THE ABOVE dnf COMMAND
+#           --enablerepo=codeready-builder-beta-for-rhel-10-x86_64-rpms
+           
+# at this point, we need to attempt to build each SRPM and then install
+# the resulting RPMs until they all eventually build. This could probably
+# be more efficient
+RUN    mkdir -p completed-srpms \
+    && while [ ! -z "$(ls -A srpms)" ]; \
+       do \
+           for i in $(ls srpms/*.src.rpm); \
+           do \
+               rm -fr /root/rpmbuild; \
+	       OPTIONS=""; \
+               echo $i | grep -qE 'fltk' && OPTIONS="--nodeps"; \
+               rpmbuild --rebuild $OPTIONS $i || echo "\n\n *** BUILD EROR *** \n\n"; \
+               if [ ! -z "$(find /root/rpmbuild/RPMS -type f -name '*.rpm')" ]; \
+               then \
+                   mv $i completed-srpms; \
+                   cp $(find /root/rpmbuild/RPMS/ -type f -name '*.rpm' | grep -vE 'debugsource|debuginfo') rpms; \
+               fi; \
+               dnf -y install rpms/*.rpm; \
+           done; \
+       done

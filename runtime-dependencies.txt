@@ -1,8 +1,0 @@
-FlightGear
-FlightGear-data
-iaxclient
-iaxclient-libiax
-libvidcap
-opengl-games-utils
-plib
-SimGear

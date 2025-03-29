@@ -1,3 +1,5 @@
+THIS IS AN INCOMPLETE WORK-IN-PROGRESS
+
 # Build FlightGear flight simulator for RHEL 9
 Use a Containerfile with multi-stage builds to sort out all the missing
 dependencies and build the RPMs.
